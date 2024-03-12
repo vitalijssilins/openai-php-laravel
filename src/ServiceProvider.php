@@ -25,16 +25,25 @@ final class ServiceProvider extends BaseServiceProvider implements DeferrablePro
         $this->app->singleton(ClientContract::class, static function (): Client {
             $apiKey = config('openai.api_key');
             $organization = config('openai.organization');
+            $baseUri = config('openai.base_uri');
+            $customHeaders = config('openai.custom_headers', []);
 
             if (! is_string($apiKey) || ($organization !== null && ! is_string($organization))) {
                 throw ApiKeyIsMissing::create();
             }
 
-            return OpenAI::factory()
+            $openAIFactory = OpenAI::factory()
                 ->withApiKey($apiKey)
+                ->withBaseUri($baseUri)
                 ->withOrganization($organization)
                 ->withHttpHeader('OpenAI-Beta', 'assistants=v1')
-                ->withHttpClient(new \GuzzleHttp\Client(['timeout' => config('openai.request_timeout', 30)]))
+                ->withHttpClient(new \GuzzleHttp\Client(['timeout' => config('openai.request_timeout', 30)]));
+
+            foreach ($customHeaders as $header => $value) {
+                $openAIFactory->withHttpHeader($header, $value);
+            }
+
+            return $openAIFactory
                 ->make();
         });
 
